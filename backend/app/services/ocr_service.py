@@ -37,12 +37,21 @@ class OCRService:
         self._engine = None
         self._recent_artifacts: List[Dict[str, str]] = []
 
-    def run_ocr(self, attachments: Iterable[dict]) -> List[str]:
+    def run_ocr(self, attachments: Iterable[object]) -> List[str]:
         """Run OCR on attachments via the configured local engine, returning extracted text."""
 
         texts: List[str] = []
         self._recent_artifacts = []
-        for attachment in attachments:
+
+        if attachments is None:
+            return texts
+
+        for raw_attachment in attachments:
+            attachment = self._coerce_attachment(raw_attachment)
+            if attachment is None:
+                LOGGER.debug("Skipping unsupported attachment representation: %s", raw_attachment)
+                continue
+
             content_type = (attachment.get("content_type") or "").lower()
             if content_type not in self.SUPPORTED_TYPES:
                 LOGGER.debug("Skipping unsupported attachment type: %s", content_type)
@@ -197,3 +206,35 @@ class OCRService:
             except Exception as exc:  # pragma: no cover - defensive
                 LOGGER.warning("Failed to read attachment path %s: %s", path_value, exc)
         return None
+
+    @staticmethod
+    def _coerce_attachment(attachment: object) -> Optional[Dict[str, object]]:
+        """Normalize attachment objects to dictionaries for downstream processing."""
+
+        if attachment is None:
+            return None
+
+        if isinstance(attachment, dict):
+            return attachment
+
+        # Prefer model_dump (Pydantic v2) and fall back to dict/model_dump on legacy versions.
+        for attr in ("model_dump", "dict"):
+            if hasattr(attachment, attr):
+                method = getattr(attachment, attr)
+                try:
+                    data = method()
+                except TypeError:
+                    try:
+                        data = method(exclude_none=False)
+                    except TypeError:
+                        continue
+                if isinstance(data, dict):
+                    return data
+
+        # Last resort: attempt attribute access for known fields.
+        result: Dict[str, object] = {}
+        for key in ("content_type", "name", "filename", "path", "data"):
+            if hasattr(attachment, key):
+                result[key] = getattr(attachment, key)
+
+        return result or None
