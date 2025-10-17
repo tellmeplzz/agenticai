@@ -13,6 +13,7 @@ from ..schemas.device_ops import (
 from ..services.agent_registry import AgentRegistry, get_agent_registry
 from ..services.agent_registry import get_device_ops_service
 from ..services.device_ops_service import DeviceOpsService
+from ..utils.attachments import normalize_attachment
 
 router = APIRouter()
 
@@ -25,10 +26,17 @@ def chat(
     """Dispatch chat requests to the appropriate agent."""
 
     agent = registry.get_agent(request.agent_id)
+    normalized_attachments = [
+        normalized
+        for attachment in request.attachments or []
+        for normalized in [normalize_attachment(attachment)]
+        if normalized is not None
+    ]
+
     response_text, context_updates = agent.handle_message(
         message=request.message,
         context=request.context or {},
-        attachments=request.attachments or [],
+        attachments=normalized_attachments,
     )
 
     return ChatResponse(

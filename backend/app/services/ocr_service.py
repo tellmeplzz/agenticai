@@ -14,6 +14,7 @@ from PIL import Image
 
 from ..core.config import settings
 from .storage_service import StorageService
+from ..utils.attachments import normalize_attachment
 
 LOGGER = logging.getLogger(__name__)
 
@@ -47,7 +48,7 @@ class OCRService:
             return texts
 
         for raw_attachment in attachments:
-            attachment = self._coerce_attachment(raw_attachment)
+            attachment = normalize_attachment(raw_attachment)
             if attachment is None:
                 LOGGER.debug("Skipping unsupported attachment representation: %s", raw_attachment)
                 continue
@@ -207,34 +208,3 @@ class OCRService:
                 LOGGER.warning("Failed to read attachment path %s: %s", path_value, exc)
         return None
 
-    @staticmethod
-    def _coerce_attachment(attachment: object) -> Optional[Dict[str, object]]:
-        """Normalize attachment objects to dictionaries for downstream processing."""
-
-        if attachment is None:
-            return None
-
-        if isinstance(attachment, dict):
-            return attachment
-
-        # Prefer model_dump (Pydantic v2) and fall back to dict/model_dump on legacy versions.
-        for attr in ("model_dump", "dict"):
-            if hasattr(attachment, attr):
-                method = getattr(attachment, attr)
-                try:
-                    data = method()
-                except TypeError:
-                    try:
-                        data = method(exclude_none=False)
-                    except TypeError:
-                        continue
-                if isinstance(data, dict):
-                    return data
-
-        # Last resort: attempt attribute access for known fields.
-        result: Dict[str, object] = {}
-        for key in ("content_type", "name", "filename", "path", "data"):
-            if hasattr(attachment, key):
-                result[key] = getattr(attachment, key)
-
-        return result or None
