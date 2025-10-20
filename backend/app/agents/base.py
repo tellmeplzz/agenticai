@@ -1,20 +1,29 @@
-"""Base class for conversational agents."""
+"""Base types shared by all conversational agents."""
 
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Dict, Iterable, Tuple
+from dataclasses import dataclass
+from typing import Dict, Iterable, Mapping
+
+
+@dataclass
+class AgentResponse:
+    """Normalized response returned by every agent."""
+
+    message: str
+    context: Dict[str, object]
 
 
 class BaseAgent(ABC):
-    """Abstract agent that provides a conversation interface."""
+    """Abstract conversation agent interface."""
 
     @abstractmethod
-    def handle_message(
+    async def handle_message(
         self,
         message: str,
         context: Dict[str, object],
-        attachments: Iterable[dict],
-    ) -> Tuple[str, Dict[str, object]]:
-        """Process the user message and return response with updated context."""
+        attachments: Iterable[Mapping[str, object]],
+    ) -> AgentResponse:
+        """Process the user message and return the model response and new context."""
 

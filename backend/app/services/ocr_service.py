@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import base64
 from pathlib import Path
-from typing import Iterable, List, Tuple
+from typing import Iterable, List, Mapping, Tuple
 
 
 class OCRService:
@@ -16,23 +16,32 @@ class OCRService:
         "application/pdf",
     )
 
-    def run_ocr(self, attachments: Iterable[dict]) -> List[str]:
+    def run_ocr(self, attachments: Iterable[Mapping[str, object]]) -> List[str]:
         """Run OCR on attachments, returning extracted text segments."""
 
         texts: List[str] = []
-        for attachment in attachments:
-            content_type = attachment.get("content_type")
+        attachments_list = list(attachments)
+        for attachment in attachments_list:
+            content_type = str(attachment.get("content_type")) if attachment.get("content_type") else None
             if content_type not in self.SUPPORTED_TYPES:
                 continue
 
             data = attachment.get("data")
-            if data:
+            if isinstance(data, str) and data:
                 decoded = base64.b64decode(data)
                 texts.append(self._fake_ocr(decoded, content_type))
+                continue
+
+            path = attachment.get("path")
+            if isinstance(path, (str, Path)):
+                texts.append(self._fake_ocr(Path(path).read_bytes(), content_type))
+
+        if not texts:
+            if attachments_list:
+                texts.append("[Attachments were provided but none were OCR-compatible]")
             else:
-                path = attachment.get("path")
-                if path:
-                    texts.append(self._fake_ocr(Path(path).read_bytes(), content_type))
+                texts.append("[No attachments provided]")
+
         return texts
 
     @staticmethod
