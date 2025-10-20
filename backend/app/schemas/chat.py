@@ -12,6 +12,13 @@ class Attachment(BaseModel):
     content_type: Optional[str] = Field(
         None, description="MIME type to guide processing"
     )
+    path: Optional[str] = Field(
+        None,
+        description=(
+            "Optional filesystem path when the payload is stored externally (e.g."
+            " object storage or pre-uploaded files)."
+        ),
+    )
     data: Optional[str] = Field(
         None,
         description=(

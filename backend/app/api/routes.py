@@ -9,21 +9,21 @@ router = APIRouter()
 
 
 @router.post("/chat", response_model=ChatResponse)
-def chat(
+async def chat(
     request: ChatRequest,
     registry: AgentRegistry = Depends(get_agent_registry),
 ) -> ChatResponse:
     """Dispatch chat requests to the appropriate agent."""
 
     agent = registry.get_agent(request.agent_id)
-    response_text, context_updates = agent.handle_message(
+    agent_response = await agent.handle_message(
         message=request.message,
         context=request.context or {},
-        attachments=request.attachments or [],
+        attachments=[attachment.dict() for attachment in request.attachments or []],
     )
 
     return ChatResponse(
         agent_id=request.agent_id,
-        response=response_text,
-        context=context_updates,
+        response=agent_response.message,
+        context=agent_response.context,
     )

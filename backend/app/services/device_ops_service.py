@@ -21,6 +21,20 @@ class DeviceOpsService:
         return self.knowledge_base
 
     def summarize_telemetry(self, telemetry: Dict[str, str]) -> Dict[str, str]:
+        """Generate a concise summary of telemetry with recommended procedures."""
+
         summary = {key: value for key, value in telemetry.items() if value}
-        summary.update({"reference_procedure": self.knowledge_base.get("reset_procedure", "")})
+        if "temperature" in summary:
+            summary["temperature_flag"] = (
+                "High" if self._is_temperature_high(summary["temperature"]) else "Normal"
+            )
+        summary["reference_procedure"] = self.knowledge_base.get("reset_procedure", "")
         return summary
+
+    @staticmethod
+    def _is_temperature_high(value: str) -> bool:
+        try:
+            numeric = float(value.strip().lower().rstrip("c"))
+        except (TypeError, ValueError):
+            return False
+        return numeric >= 80
